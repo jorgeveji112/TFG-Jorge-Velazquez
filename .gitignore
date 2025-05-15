@@ -1,0 +1,20 @@
+# Entorno virtual
+.venv/
+venv/
+
+# Archivos de configuración o entorno
+.env
+
+# Archivos de modelo entrenado
+models/*.pkl
+
+# Salidas del sistema
+logs/
+__pycache__/
+*.pyc
+
+# Archivos generados temporalmente
+*.log
+# Archivos de Jupyter o VSCode (por si acaso)
+.ipynb_checkpoints/
+.vscode/
