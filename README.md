@@ -65,7 +65,7 @@ python src/train_model.py
 Desde la raíz del proyecto, ejecuta:
 
 ```bash
-run.bat
+.\run.bat
 ```
 
 Esto lanza `main.py` y simula todo el flujo multiagente con predicciones reales.
