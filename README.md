@@ -1,6 +1,6 @@
 
-# TFG — Optimización Inteligente del Reparto de Mercancías mediante un Sistema
-Multiagente
+# TFG — Optimización Inteligente del Reparto de Mercancías mediante un Sistema Multiagente
+
 
 Este proyecto implementa un sistema inteligente basado en agentes, desarrollado para el Trabajo de Fin de Grado de Jorge Velázquez Jiménez. Utiliza datos reales del dataset de e-commerce brasileño (`Olist`) para simular la predicción de tiempos de entrega y la planificación logística mediante agentes autónomos comunicándose entre sí.
 
