@@ -1,15 +1,17 @@
-from autogen import Agent, Message
+from autogen_core import RoutedAgent, message_handler, MessageContext
+from messages.message_types import ListaPedidos, Asignaciones, Pedido
 
-class OrderPlannerAgent(Agent):
+class OrderPlannerAgent(RoutedAgent):
     def __init__(self, name="OrderPlanner"):
-        super().__init__(name=name)
+        super().__init__("OrderPlanner")
 
-    def receive(self, message: Message):
-        pedidos = message.data.get("orders", [])
-        asignaciones = {}
-        for pedido in pedidos:
-            estado = pedido.get("customer_state")
-            if estado not in asignaciones:
-                asignaciones[estado] = []
-            asignaciones[estado].append(pedido)
-        return Message(sender=self, recipient="RouteOptimizer", data={"assigned_orders": asignaciones})
+    @message_handler
+    async def plan(self, message: ListaPedidos, ctx: MessageContext) -> Asignaciones:
+        resultado = {}
+        for pedido in message.pedidos:
+            estado = pedido.customer_state
+            resultado.setdefault(estado, []).append(pedido)
+        print(f"\n[{self.__class__.__name__}] Pedidos agrupados por estado:")
+        for estado, pedidos in resultado.items():
+            print(f"  - {estado}: {len(pedidos)} pedidos")
+        return Asignaciones(asignados=resultado)

@@ -1,12 +1,15 @@
-from autogen import Agent, Message
+from autogen_core import RoutedAgent, message_handler, MessageContext
+from messages.message_types import Asignaciones, Rutas, Pedido
 
-class RouteOptimizerAgent(Agent):
+class RouteOptimizerAgent(RoutedAgent):
     def __init__(self, name="RouteOptimizer"):
-        super().__init__(name=name)
+        super().__init__("RouteOptimizer")
 
-    def receive(self, message: Message):
-        asignaciones = message.data.get("assigned_orders", {})
+    @message_handler
+    async def optimize(self, message: Asignaciones, ctx: MessageContext) -> Rutas:
         rutas = {}
-        for estado, pedidos in asignaciones.items():
-            rutas[estado] = sorted(pedidos, key=lambda x: x.get("customer_zip_code_prefix", 0))
-        return Message(sender=self, recipient="LoggerAgent", data={"routes": rutas})
+        for estado, pedidos in message.asignados.items():
+            rutas[estado] = sorted(pedidos, key=lambda x: x.customer_zip_code_prefix)
+        print(f"\n[{self.__class__.__name__}] Rutas optimizadas por código postal.")
+        return Rutas(rutas=rutas)
+
