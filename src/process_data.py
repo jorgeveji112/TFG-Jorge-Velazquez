@@ -47,7 +47,7 @@ columns_needed = [
     'payment_type',
     'payment_installments',
     'payment_value',
-    'order_delivered_customer_date'  # necesaria para calcular el target
+    'order_delivered_customer_date'
 ]
 
 filtered_df = full_df[columns_needed]
