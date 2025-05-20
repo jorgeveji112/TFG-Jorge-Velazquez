@@ -1,22 +1,22 @@
 import pandas as pd
 import asyncio
-from autogen_core import MessageContext, CancellationToken
-from agents import (
-    DeliveryPredictorAgent,
-    OrderPlannerAgent,
-    RouteOptimizerAgent,
-    LoggerAgent
-)
+from autogen_core import SingleThreadedAgentRuntime, AgentId
 from messages.message_types import Pedido, ListaPedidos
+from agents.delivery_predictor import DeliveryPredictorAgent
+from agents.order_planner import OrderPlannerAgent
+from agents.route_optimizer import RouteOptimizerAgent
+from agents.logger_agent import LoggerAgent
 
-# 1. Cargar pedidos reales desde CSV
-df = pd.read_csv("data/processed/orders_filtered_with_delivery_time.csv").fillna(0)
-muestra = df.sample(10, random_state=42)
+async def main():
+    # 1. Crear runtime
+    runtime = SingleThreadedAgentRuntime()
 
-pedidos = []
-for _, row in muestra.iterrows():
-    try:
-        pedidos.append(Pedido(
+    # 2. Cargar pedidos desde CSV
+    df = pd.read_csv("data/processed/orders_filtered_with_delivery_time.csv").fillna(0)
+    muestra = df.sample(10, random_state=42)
+
+    pedidos = [
+        Pedido(
             order_id=row["order_id"],
             price=row["price"],
             freight_value=row["freight_value"],
@@ -29,38 +29,22 @@ for _, row in muestra.iterrows():
             customer_state=row["customer_state"],
             customer_zip_code_prefix=int(row["customer_zip_code_prefix"]),
             delivery_time_days=row.get("delivery_time_days", None)
-        ))
-    except Exception as e:
-        print(f"Error al convertir un pedido: {e}")
+        )
+        for _, row in muestra.iterrows()
+    ]
 
-# 2. Inicializar agentes
-delivery = DeliveryPredictorAgent()
-planner = OrderPlannerAgent()
-optimizer = RouteOptimizerAgent()
-logger = LoggerAgent()
+    # 3. Registrar agentes
+    await DeliveryPredictorAgent.register(runtime, "predictor", lambda: DeliveryPredictorAgent())
+    await OrderPlannerAgent.register(runtime, "planner", lambda: OrderPlannerAgent())
+    await RouteOptimizerAgent.register(runtime, "optimizer", lambda: RouteOptimizerAgent())
+    await LoggerAgent.register(runtime, "logger", lambda: LoggerAgent())
+    
+    print(f"Enviando a predictor: {type(ListaPedidos(pedidos=pedidos))}")
+    # 4. Lanzar flujo enviando primer mensaje
+    await runtime.send_message(ListaPedidos(pedidos=pedidos), AgentId("predictor", "default"))
 
-# 3. Crear contexto de ejecución
-ctx = MessageContext(
-    topic_id="simulacion",
-    sender="main",
-    is_rpc=False,
-    cancellation_token=CancellationToken(),
-    message_id="msg-1"
-)
+    # 5. Esperar hasta que todos los agentes finalicen
+    await runtime.stop_when_idle()
 
-# 4. Ejecutar flujo multiagente
-async def ejecutar():
-    print("\n== Predicción de tiempos de entrega ==")
-    lista = ListaPedidos(pedidos=pedidos)
-    pred = await delivery.predict(lista, ctx)
-
-    print("\n== Asignación por estado ==")
-    asignados = await planner.plan(pred, ctx)
-
-    print("\n== Optimización de rutas ==")
-    rutas = await optimizer.optimize(asignados, ctx)
-
-    print("\n== Resultado final ==")
-    await logger.log(rutas, ctx)
-
-asyncio.run(ejecutar())
+if __name__ == "__main__":
+    asyncio.run(main())
