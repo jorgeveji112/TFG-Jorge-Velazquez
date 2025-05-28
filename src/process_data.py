@@ -2,8 +2,9 @@ import pandas as pd
 import os
 
 # Rutas
-RAW_PATH = 'data/raw'
-PROCESSED_PATH = 'data/processed'
+RAW_PATH = '../data/raw'
+PROCESSED_PATH = '../data/processed'
+
 os.makedirs(PROCESSED_PATH, exist_ok=True)
 
 # Cargar datasets
@@ -47,7 +48,7 @@ columns_needed = [
     'payment_type',
     'payment_installments',
     'payment_value',
-    'order_delivered_customer_date'  # necesaria para calcular el target
+    'order_delivered_customer_date'
 ]
 
 filtered_df = full_df[columns_needed]
@@ -56,6 +57,37 @@ filtered_df = full_df[columns_needed]
 filtered_df['order_purchase_timestamp'] = pd.to_datetime(filtered_df['order_purchase_timestamp'], errors='coerce')
 filtered_df['order_delivered_customer_date'] = pd.to_datetime(filtered_df['order_delivered_customer_date'], errors='coerce')
 filtered_df['delivery_time_days'] = (filtered_df['order_delivered_customer_date'] - filtered_df['order_purchase_timestamp']).dt.days
+
+# Cargar geolocalización
+geolocation = pd.read_csv(os.path.join(RAW_PATH, 'olist_geolocation_dataset.csv'))
+
+# Calcular lat/lng medios por zip prefix
+geo_grouped = geolocation.groupby('geolocation_zip_code_prefix').agg({
+    'geolocation_lat': 'mean',
+    'geolocation_lng': 'mean'
+}).reset_index()
+
+# Añadir lat/lng del cliente
+filtered_df = filtered_df.merge(
+    geo_grouped.rename(columns={
+        'geolocation_zip_code_prefix': 'customer_zip_code_prefix',
+        'geolocation_lat': 'customer_lat',
+        'geolocation_lng': 'customer_lng'
+    }),
+    on='customer_zip_code_prefix',
+    how='left'
+)
+
+# Añadir lat/lng del vendedor
+filtered_df = filtered_df.merge(
+    geo_grouped.rename(columns={
+        'geolocation_zip_code_prefix': 'seller_zip_code_prefix',
+        'geolocation_lat': 'seller_lat',
+        'geolocation_lng': 'seller_lng'
+    }),
+    on='seller_zip_code_prefix',
+    how='left'
+)
 
 # Guardar resultado
 output_path = os.path.join(PROCESSED_PATH, 'orders_filtered_with_delivery_time.csv')
