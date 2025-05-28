@@ -1,71 +1,62 @@
 from autogen_core import RoutedAgent, MessageContext, message_handler, default_subscription
 from messages.message_types import Rutas
-from collections import defaultdict
-from pathlib import Path
 import csv
+from pathlib import Path
 from math import radians, cos, sin, asin, sqrt
 
 @default_subscription
 class LoggerAgent(RoutedAgent):
     def __init__(self):
-        super().__init__("Registra la ruta optimizada")
+        super().__init__("Registra las rutas finales")
 
-    def haversine(self, lat1, lon1, lat2, lon2) -> float:
+    def haversine(self, lat1, lon1, lat2, lon2):
         R = 6371
         lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
-        dlat, dlon = lat2 - lat1, lon2 - lon1
-        a = sin(dlat/2)**2 + cos(lat1)*cos(lat2)*sin(dlon/2)**2
-        return 2 * R * asin(sqrt(a))
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
+        c = 2 * asin(sqrt(a))
+        return R * c
 
     @message_handler
     async def log(self, message: Rutas, ctx: MessageContext) -> None:
-        print(f"\n[{self.__class__.__name__}] Resultado final de la ruta optimizada:")
+        print(f"\n[{self.__class__.__name__}] Resultado final de rutas:")
 
-        output_file = Path("logs/ruta_tsp.csv")
+        output_file = Path("logs/predicciones.csv")
         output_file.parent.mkdir(exist_ok=True)
 
         with open(output_file, mode="w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow(["zip_code", "num_pedidos", "distancia_desde_anterior_km", "order_ids", "predicted_days"])
+            writer.writerow([
+                "order_id", "estado", "zip_code", "predicted_days", "delivery_time_days", "distancia_recorrida_km"
+            ])
 
-            rutas = list(message.rutas.values())[0]  # solo hay una clave: GLOBAL
-            ruta_por_zip = defaultdict(list)
+            for estado, pedidos in message.rutas.items():
+                print(f"  - {estado}: {len(pedidos)} pedidos")
 
-            for p in rutas:
-                ruta_por_zip[str(p.customer_zip_code_prefix)].append(p)
-                ruta_por_zip[str(p.seller_zip_code_prefix)].append(p)
+                distancia_total = 0.0
+                prev = None
 
-            visitados = []
-            for p in rutas:
-                zip_c = str(p.customer_zip_code_prefix)
-                zip_s = str(p.seller_zip_code_prefix)
-                if zip_s not in visitados:
-                    visitados.append(zip_s)
-                if zip_c not in visitados:
-                    visitados.append(zip_c)
+                for idx, p in enumerate(pedidos):
+                    predicted = getattr(p, "predicted_days", "N/A")
+                    real = getattr(p, "delivery_time_days", "N/A")
+                    zip_code = getattr(p, "customer_zip_code_prefix", "N/A")
 
-            total_distancia = 0
-            zip_coords = {}
+                    if prev is None:
+                        dist = 0.0  # Primer customer del estado
+                    else:
+                        dist = self.haversine(
+                            prev.customer_lat, prev.customer_lng,
+                            p.customer_lat, p.customer_lng
+                        )
+                    distancia_total += dist
 
-            # Obtener coordenadas medias por ZIP
-            for p in rutas:
-                zip_coords[str(p.customer_zip_code_prefix)] = (p.customer_lat, p.customer_lng)
-                zip_coords[str(p.seller_zip_code_prefix)] = (p.seller_lat, p.seller_lng)
+                    print(f"    Pedido {p.order_id} → {predicted} días, distancia recorrida desde anterior: {round(dist, 2)} km")
 
-            prev_zip = None
-            for zip_code in visitados:
-                pedidos = ruta_por_zip[zip_code]
-                order_ids = [p.order_id for p in pedidos]
-                predicted = [round(getattr(p, "predicted_days", 0), 2) for p in pedidos]
+                    writer.writerow([
+                        p.order_id, estado, zip_code, predicted, real, round(dist, 2)
+                    ])
 
-                if prev_zip:
-                    dist = self.haversine(*zip_coords[prev_zip], *zip_coords[zip_code])
-                else:
-                    dist = 0.0
-                total_distancia += dist
+                    prev = p
 
-                print(f"  - ZIP {zip_code}: {len(order_ids)} pedidos, +{dist:.2f} km")
-                writer.writerow([zip_code, len(order_ids), round(dist, 2), ", ".join(order_ids), ", ".join(map(str, predicted))])
-                prev_zip = zip_code
-
-            print(f"\n Distancia total estimada: {total_distancia:.2f} km")
+                print(f"    Distancia total de la ruta para {estado}: {round(distancia_total, 2)} km\n")

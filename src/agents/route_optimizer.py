@@ -1,82 +1,45 @@
 from autogen_core import AgentId, RoutedAgent, MessageContext, default_subscription, message_handler
-import pandas as pd
-from messages.message_types import GrafoAsignaciones, Rutas, Pedido
-import networkx as nx
-from itertools import permutations
-from collections import defaultdict
+from messages.message_types import Asignaciones, Rutas
+from math import radians, cos, sin, asin, sqrt
 
 @default_subscription
 class RouteOptimizerAgent(RoutedAgent):
     def __init__(self):
-        super().__init__("TSP por ZIPs con prioridad")
+        super().__init__("Optimiza rutas TSP solo entre customers por estado")
 
-    def tsp_con_prioridad(self, G: nx.Graph, start: str):
-        nodos = list(G.nodes)
-        nodos.remove(start)
+    def distancia(self, p1, p2):
+        # Distancia entre dos customers (ignorando seller)
+        lat1, lon1 = p1.customer_lat, p1.customer_lng
+        lat2, lon2 = p2.customer_lat, p2.customer_lng
+        lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+        c = 2 * asin(sqrt(a))
+        R = 6371
+        return R * c
 
-        mejor_ruta = None
-        menor_coste = float("inf")
-
-        for perm in permutations(nodos):
-            ruta = [start] + list(perm) + [start]
-            coste = sum(G[ruta[i]][ruta[i+1]]['weight'] for i in range(len(ruta)-1))
-            if coste < menor_coste:
-                menor_coste = coste
-                mejor_ruta = ruta
-
-        return mejor_ruta, menor_coste
+    def tsp_nearest_neighbor(self, pedidos):
+        if not pedidos:
+            return []
+        no_visitados = pedidos.copy()
+        ruta = [no_visitados.pop(0)]  # Empieza por el primero
+        while no_visitados:
+            actual = ruta[-1]
+            siguiente = min(no_visitados, key=lambda x: self.distancia(actual, x))
+            ruta.append(siguiente)
+            no_visitados.remove(siguiente)
+        return ruta
 
     @message_handler
-    async def optimize(self, message: GrafoAsignaciones, ctx: MessageContext) -> None:
-        print(f"[RouteOptimizerAgent] TSP con prioridad para {len(message.grafo)} ZIPs")
+    async def optimize(self, message: Asignaciones, ctx: MessageContext) -> None:
+        print(f"[RouteOptimizerAgent] Calculando rutas óptimas tipo TSP solo entre customers...")
 
-        # Agrupar pedidos por ZIP y calcular prioridad acumulada
-        zip_prioridades = defaultdict(int)
-        zip_pedidos = defaultdict(list)
+        rutas_ordenadas = {}
 
-        for pedido in message.pedidos.values():
-            # Seller ZIP
-            zip_seller = str(pedido.seller_zip_code_prefix)
-            zip_pedidos[zip_seller].append(pedido)
-            zip_prioridades[zip_seller] += self._prioridad(pedido)
+        for estado, pedidos in message.asignados.items():
+            # Ordena pedidos usando TSP Nearest Neighbor entre customers
+            ruta = self.tsp_nearest_neighbor(pedidos)
+            rutas_ordenadas[estado] = ruta
 
-            # Customer ZIP
-            zip_customer = str(pedido.customer_zip_code_prefix)
-            zip_pedidos[zip_customer].append(pedido)
-            zip_prioridades[zip_customer] += self._prioridad(pedido)
-
-        # Crear grafo con peso = distancia - prioridad * α
-        G = nx.Graph()
-        factor = 2.0
-
-        for origen, vecinos in message.grafo.items():
-            for destino, distancia in vecinos.items():
-                prioridad_destino = zip_prioridades[destino]
-                peso = distancia - factor * prioridad_destino
-                G.add_edge(origen, destino, weight=max(peso, 0.1))
-
-        if message.origen not in G.nodes:
-            print(f"[RouteOptimizerAgent] Origen {message.origen} no está en el grafo")
-            return
-
-        try:
-            ruta_zip, coste_total = self.tsp_con_prioridad(G, message.origen)
-
-            pedidos_ordenados = []
-            for zip in ruta_zip:
-                pedidos_ordenados.extend(zip_pedidos[zip])  # puede haber varios por ZIP
-
-            print(f"[RouteOptimizerAgent] Ruta TSP optimizada con {len(pedidos_ordenados)} pedidos")
-
-            await self.send_message(
-                Rutas(rutas={message.estado: pedidos_ordenados}),
-                AgentId("logger", "default")
-            )
-        except Exception as e:
-            print(f"[RouteOptimizerAgent] Error en TSP: {e}")
-
-    def _prioridad(self, p: Pedido) -> int:
-        ahora = pd.Timestamp.now()
-        orden = pd.to_datetime(p.order_purchase_timestamp)
-        limite = pd.to_datetime(p.shipping_limit_date)
-        return (ahora - orden).days - (limite - ahora).days
+        await self.send_message(Rutas(rutas=rutas_ordenadas), AgentId("logger", "default"))
