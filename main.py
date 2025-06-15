@@ -11,7 +11,7 @@ from pedido_generator import generar_lista_pedidos
 async def main():
     runtime = SingleThreadedAgentRuntime()
 
-    pedidos = generar_lista_pedidos(num_pedidos=30000)
+    pedidos = generar_lista_pedidos(num_pedidos=100)
     
 
     await DeliveryPredictorAgent.register(runtime, "predictor", lambda: DeliveryPredictorAgent())
