@@ -8,7 +8,7 @@ class RouteOptimizerAgent(RoutedAgent):
         super().__init__("Optimiza rutas TSP solo entre customers por estado")
 
     def distancia(self, p1, p2):
-        # Distancia entre dos customers (ignorando seller)
+        # Distancia entre dos customers
         lat1, lon1 = p1.customer_lat, p1.customer_lng
         lat2, lon2 = p2.customer_lat, p2.customer_lng
         lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
@@ -23,7 +23,7 @@ class RouteOptimizerAgent(RoutedAgent):
         if not pedidos:
             return []
         no_visitados = pedidos.copy()
-        ruta = [no_visitados.pop(0)]  # Empieza por el primero
+        ruta = [no_visitados.pop(0)]
         while no_visitados:
             actual = ruta[-1]
             siguiente = min(no_visitados, key=lambda x: self.distancia(actual, x))

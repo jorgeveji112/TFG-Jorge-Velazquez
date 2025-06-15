@@ -28,7 +28,10 @@ class LoggerAgent(RoutedAgent):
         with open(output_file, mode="w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow([
-                "order_id", "estado", "zip_code", "predicted_days", "delivery_time_days", "distancia_recorrida_km"
+                "order_id", "estado", "zip_code", "predicted_days", "delivery_time_days", "distancia_recorrida_km",
+                "price", "freight_value", "payment_value", "payment_installments",
+                "product_weight_g", "product_length_cm", "product_height_cm", "product_width_cm",
+                "order_purchase_timestamp", "shipping_limit_date"
             ])
 
             for estado, pedidos in message.rutas.items():
@@ -37,13 +40,13 @@ class LoggerAgent(RoutedAgent):
                 distancia_total = 0.0
                 prev = None
 
-                for idx, p in enumerate(pedidos):
+                for p in pedidos:
                     predicted = getattr(p, "predicted_days", "N/A")
                     real = getattr(p, "delivery_time_days", "N/A")
                     zip_code = getattr(p, "customer_zip_code_prefix", "N/A")
 
                     if prev is None:
-                        dist = 0.0  # Primer customer del estado
+                        dist = 0.0
                     else:
                         dist = self.haversine(
                             prev.customer_lat, prev.customer_lng,
@@ -51,12 +54,15 @@ class LoggerAgent(RoutedAgent):
                         )
                     distancia_total += dist
 
-                    print(f"    Pedido {p.order_id} → {predicted} días, distancia recorrida desde anterior: {round(dist, 2)} km")
+                    print(f"    Pedido {p.order_id} → {predicted} días, distancia desde anterior: {round(dist, 2)} km")
 
                     writer.writerow([
-                        p.order_id, estado, zip_code, predicted, real, round(dist, 2)
+                        p.order_id, estado, zip_code, predicted, real, round(dist, 2),
+                        p.price, p.freight_value, p.payment_value, p.payment_installments,
+                        p.product_weight_g, p.product_length_cm, p.product_height_cm, p.product_width_cm,
+                        p.order_purchase_timestamp, p.shipping_limit_date
                     ])
 
                     prev = p
 
-                print(f"    Distancia total de la ruta para {estado}: {round(distancia_total, 2)} km\n")
+                print(f"    Distancia total para {estado}: {round(distancia_total, 2)} km\n")
