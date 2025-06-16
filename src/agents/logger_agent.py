@@ -1,6 +1,7 @@
 from autogen_core import RoutedAgent, MessageContext, message_handler, default_subscription
 from messages.message_types import Rutas
 import csv
+import json
 from pathlib import Path
 from math import radians, cos, sin, asin, sqrt
 
@@ -22,8 +23,12 @@ class LoggerAgent(RoutedAgent):
     async def log(self, message: Rutas, ctx: MessageContext) -> None:
         print(f"\n[{self.__class__.__name__}] Resultado final de rutas:")
 
-        output_file = Path("logs/predicciones.csv")
-        output_file.parent.mkdir(exist_ok=True)
+        output_dir = Path("logs")
+        rutas_dir = Path("rutas")
+        output_dir.mkdir(exist_ok=True)
+        rutas_dir.mkdir(exist_ok=True)
+
+        output_file = output_dir / "predicciones.csv"
 
         with open(output_file, mode="w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
@@ -39,6 +44,7 @@ class LoggerAgent(RoutedAgent):
 
                 distancia_total = 0.0
                 prev = None
+                coords_geojson = []
 
                 for p in pedidos:
                     predicted = getattr(p, "predicted_days", "N/A")
@@ -63,6 +69,26 @@ class LoggerAgent(RoutedAgent):
                         p.order_purchase_timestamp, p.shipping_limit_date
                     ])
 
+                    # Añadir coordenadas para el GeoJSON
+                    coords_geojson.append([p.customer_lng, p.customer_lat])
                     prev = p
 
-                print(f"    Distancia total para {estado}: {round(distancia_total, 2)} km\n")
+                # Guardar GeoJSON de la ruta por estado
+                geojson_data = {
+                    "type": "FeatureCollection",
+                    "features": [{
+                        "type": "Feature",
+                        "properties": {"estado": estado},
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": coords_geojson
+                        }
+                    }]
+                }
+
+                geojson_path = rutas_dir / f"{estado.lower()}.geojson"
+                with open(geojson_path, "w", encoding="utf-8") as geo:
+                    json.dump(geojson_data, geo, ensure_ascii=False, indent=2)
+
+                print(f"    Distancia total para {estado}: {round(distancia_total, 2)} km")
+                print(f"    → GeoJSON guardado en: rutas/{estado.lower()}.geojson\n")

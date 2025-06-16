@@ -1,0 +1,20 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "estado": "PE"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -36.49425635129274,
+            -8.893172715777835
+          ]
+        ]
+      }
+    }
+  ]
+}

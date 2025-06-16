@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import List, Dict, Literal
 
 @dataclass
 class Pedido:
@@ -37,9 +37,20 @@ class Rutas:
     rutas: Dict[str, List[Pedido]]
 
 @dataclass
+class Nodo:
+    id: str
+    lat: float
+    lng: float
+    tipo: Literal["pickup", "dropoff"]
+    pedido_id: List[str]
+
+@dataclass
 class GrafoAsignaciones:
-    estado: str
-    grafo: Dict[str, Dict[str, float]]      
-    pedidos: Dict[str, Pedido]              
-    origen: str
-    destino: str
+    nodos: List[Nodo]                            # Nodos de recogida y entrega
+    distancias: Dict[str, Dict[str, float]]      # Mapa de distancias
+    pedidos: Dict[str, Pedido]                   # Info completa de cada pedido
+
+@dataclass
+class RutasNodos:
+    ruta_nodos: List[Nodo]
+    pedidos: Dict[str, Pedido]

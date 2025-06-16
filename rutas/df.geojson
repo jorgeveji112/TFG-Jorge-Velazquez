@@ -1,0 +1,24 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "estado": "DF"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -47.89330451642299,
+            -15.813194505700215
+          ],
+          [
+            -47.92840964784617,
+            -15.800124253044524
+          ]
+        ]
+      }
+    }
+  ]
+}

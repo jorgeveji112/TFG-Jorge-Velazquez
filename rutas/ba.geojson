@@ -1,0 +1,20 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "estado": "BA"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -38.52312762059766,
+            -13.00511809045674
+          ]
+        ]
+      }
+    }
+  ]
+}

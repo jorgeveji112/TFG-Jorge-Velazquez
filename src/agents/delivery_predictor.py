@@ -5,7 +5,6 @@ import pandas as pd
 
 class DeliveryPredictorAgent(RoutedAgent):
     def __init__(self):
-        print("[DeliveryPredictorAgent] Instanciado")
         super().__init__("Predice el tiempo de entrega")
         self.model = joblib.load("models/delivery_time_predictor.pkl")
         self.features = [

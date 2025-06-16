@@ -1,0 +1,20 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "estado": "AM"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -60.02499960797718,
+            -3.120035553106245
+          ]
+        ]
+      }
+    }
+  ]
+}
